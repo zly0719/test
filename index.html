@@ -1,1 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title> </title>
+<style>
+:root { 
+    --bubble-duration: 1s; 
+    --card-bg: rgba(255, 255, 255, 0.20);
+    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+* { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { height: 100vh; padding: 40px 20px; text-align: center; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #ffffff; }
+.bg-wrap { position: fixed; inset: 0; z-index: -1; background: #ffffff; transition: background 0.3s ease; overflow: hidden; }
+body.bg-black .bg-wrap { background: #000000; }
+.bubble { position: absolute; width: 100%; height: 100%; --bubble-size: 50%; will-change: transform; transform: translate3d(0,0,0); backface-visibility: hidden; transition: transform var(--bubble-duration) ease-in-out; }
+.bubble:nth-child(1) { background: radial-gradient(circle, rgba(255, 180, 210, 0.55), transparent var(--bubble-size)); }
+.bubble:nth-child(2) { background: radial-gradient(circle, rgba(160, 210, 255, 0.55), transparent var(--bubble-size)); }
+.bubble:nth-child(3) { background: radial-gradient(circle, rgba(210, 180, 255, 0.55), transparent var(--bubble-size)); }
+.bubble:nth-child(4) { background: radial-gradient(circle, rgba(255, 235, 180, 0.55), transparent var(--bubble-size)); }
+.bubble:nth-child(5) { background: radial-gradient(circle, rgba(180, 255, 210, 0.55), transparent var(--bubble-size)); }
+.bubble:nth-child(6) { background: radial-gradient(circle, rgba(255, 120, 180, 0.55), transparent var(--bubble-size)); }
+.bubble:nth-child(7) { background: radial-gradient(circle, rgba(120, 220, 255, 0.55), transparent var(--bubble-size)); }
 
+.view-page { max-width: 440px; width: 100%; margin: 0 auto; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); opacity: 0; pointer-events: none; z-index: 1; will-change: opacity; }
+.view-page.active { opacity: 1; pointer-events: auto; z-index: 2; }
+
+.card { background: var(--card-bg); border: 1px solid var(--card-bg); border-radius: 28px; padding: 40px 30px; box-shadow: var(--card-shadow); transition: background 0.3s ease, border-color 0.3s ease; }
+.card.no-glass { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+
+.title { font-size: 26px; color: #111111; margin-bottom: 36px; font-weight: 500; letter-spacing: 0.5px; }
+.title:empty { display: none; }
+.title:empty + * { margin-top: -10px; } 
+
+body.bg-black .title { color: #ffffff; }
+.col-center { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+
+.btn-custom { background: var(--btn-bg, #3B82F6); color: var(--btn-color, #ffffff); box-shadow: var(--card-shadow); border: none; border-radius: 24px; padding: 24px 32px; font-size: 24px; font-weight: 600; width: 100%; cursor: pointer; transition: 0.25s ease; letter-spacing: 1px; display: flex; align-items: center; justify-content: center; gap: 12px; position: relative; overflow: hidden; -webkit-touch-callout: none; user-select: none; }
+.btn-custom:active { transform: scale(0.96); }
+.btn-custom:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+.btn-theme-1 { --btn-bg: #3B82F6; --btn-color: #ffffff; }
+.btn-theme-2 { --btn-bg: #ffffff; --btn-color: #111111; }
+
+.setting-btn, .config-btn { position: fixed; top: 20px; z-index: 9999; width: 50px; height: 50px; border-radius: 50%; background: var(--card-bg); border: 1px solid rgba(255, 255, 255, 0.2); color: #111111; font-size: 22px; cursor: pointer; transition: background 0.3s ease, color 0.3s ease, transform 0.2s ease, opacity 0.15s ease; display: flex; align-items: center; justify-content: center; box-shadow: var(--card-shadow); user-select: none; font-weight: bold; }
+.setting-btn:active, .config-btn:active { transform: scale(0.92); }
+body.bg-black .setting-btn, body.bg-black .config-btn { border-color: rgba(255, 255, 255, 0.1); color: #ffffff; }
+.setting-btn.anim-hidden, .config-btn.anim-hidden { opacity: 0; pointer-events: none; }
+.setting-btn { right: 20px; }
+.config-btn { right: 80px; font-size: 26px; }
+
+.back-btn { position: fixed; top: 20px; left: 20px; z-index: 9999; width: 50px; height: 50px; border-radius: 50%; background: var(--card-bg); border: 1px solid rgba(255, 255, 255, 0.2); color: #111111; font-size: 24px; cursor: pointer; transition: background 0.3s ease, color 0.3s ease, transform 0.2s ease, opacity 0.25s ease; display: flex; align-items: center; justify-content: center; box-shadow: var(--card-shadow); user-select: none; opacity: 0; pointer-events: none; }
+.back-btn.visible { opacity: 1; pointer-events: auto; }
+.back-btn:active { transform: scale(0.92); }
+body.bg-black .back-btn { border-color: rgba(255, 255, 255, 0.1); color: #ffffff; }
+
+/* 气球动画元素 */
+.morph-ball { position: fixed; z-index: 100000; display: none; background: var(--card-bg); box-shadow: var(--card-shadow); border: 1px solid var(--card-bg); pointer-events: none; contain: layout style paint; transform: translateZ(0); }
+.morph-ball::before { content: ''; position: absolute; inset: 0; background: var(--morph-color, #3B82F6); opacity: 1; transition: opacity var(--fade-duration, 0ms) ease; border-radius: inherit; pointer-events: none; }
+.morph-ball.fade-color::before { opacity: 0; }
+
+.set-card { max-height: 78vh; overflow-y: auto; text-align: left; position: relative; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; }
+.set-card::-webkit-scrollbar { display: none; }
+.set-card .title { text-align: center; margin-bottom: 24px; }
+.announce-content { font-size: 15px; line-height: 1.8; color: #111111; white-space: pre-wrap; word-break: break-word; text-align: left; }
+body.bg-black .announce-content { color: #ffffff; }
+
+.slider-row { margin: 18px 0; }
+.slider-row label { display: block; font-size: 14px; margin-bottom: 8px; color: #111111; transition: color 0.3s ease; font-weight: 450; }
+body.bg-black .slider-row label { color: #ffffff; }
+
+.slider-track { position: relative; width: 100%; height: 24px; border-radius: 999px; background: rgba(0, 0, 0, 0.08); transition: background 0.3s ease; }
+body.bg-black .slider-track { background: rgba(255, 255, 255, 0.15); }
+.slider-fill { position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: #1989fa; border-radius: 999px; pointer-events: none; z-index: 1; }
+.slider-row input[type="range"] { -webkit-appearance: none; appearance: none; position: relative; z-index: 2; width: 100%; height: 22px; margin-top: 1px; border-radius: 999px; outline: none; cursor: pointer; background: transparent; padding: 0; border: none; touch-action: pan-y; }
+.slider-row input[type="range"]::-webkit-slider-runnable-track { height: 22px; background: transparent; border: none; }
+.slider-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 2px solid #1989fa; margin-top: 0; position: relative; z-index: 4; box-sizing: border-box; }
+.slider-row input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 2px solid #1989fa; box-sizing: border-box; }
+.slider-row input[type="range"]::-moz-range-track { height: 22px; background: transparent; border: none; }
+.slider-row [data-key] { cursor: text; display: inline-block; min-width: 36px; text-align: center; color: inherit; font-weight: 500; }
+
+.music-row { margin: 6px 0 4px; }
+.btn-toggle { width: 100%; padding: 18px 20px; border-radius: 18px; border: none; font-size: 20px; font-weight: 600; cursor: pointer; transition: 0.25s; background: #3B82F6; color: #ffffff; box-shadow: var(--card-shadow); }
+.btn-toggle:active { transform: scale(0.97); }
+.btn-toggle.off { background: rgba(0, 0, 0, 0.08); color: #666666; box-shadow: none; }
+body.bg-black .btn-toggle.off { background: rgba(255, 255, 255, 0.12); color: #aaaaaa; }
+
+.btn-enter { width: 100%; padding: 18px 22px; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.2); font-size: 18px; font-weight: 550; cursor: pointer; background: var(--card-bg); color: #111111; transition: 0.2s; margin: 18px 0 4px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--card-shadow); }
+.btn-enter:active { transform: scale(0.97); }
+body.bg-black .btn-enter { border-color: rgba(255, 255, 255, 0.1); color: #ffffff; }
+.btn-enter .chev { font-size: 20px; opacity: 0.6; }
+
+.btn-gray { width: 100%; padding: 18px 22px; border-radius: 18px; border: none; font-size: 18px; font-weight: 550; cursor: pointer; background: rgba(0, 0, 0, 0.06); color: #111111; transition: 0.2s; margin: 18px 0 4px; display: flex; align-items: center; justify-content: center; }
+.btn-gray:active { transform: scale(0.97); }
+body.bg-black .btn-gray { background: rgba(255, 255, 255, 0.12); color: #ffffff; }
+
+.bg-switch { margin: 16px 0; display: flex; gap: 12px; }
+.bg-switch button { flex: 1; padding: 10px; border-radius: 14px; border: none; cursor: pointer; font-size: 15px; font-weight: 500; transition: 0.2s; }
+.bg-switch button:active { transform: scale(0.96); }
+.btn-black { background: #000000; color: #ffffff; }
+.btn-white { background: #ffffff; color: #000000; }
+
+#page-config .card { display: flex; flex-direction: column; padding: 30px 20px; }
+#configTextarea {
+    width: 100%; height: 50vh; background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 20px; padding: 16px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 14px; line-height: 1.5; color: #333; resize: none; outline: none; margin-bottom: 20px; text-align: left;
+}
+body.bg-black #configTextarea { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.1); color: #eee; }
+#page-config .btn-custom { padding: 18px 22px; font-size: 18px; border-radius: 18px; margin-top: 0; margin-bottom: 12px; }
+#page-config .btn-gray { padding: 18px 22px; font-size: 18px; border-radius: 18px; margin: 0; }
+
+#page-error .card {
+    background: #ffffff !important; border: none; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    text-align: left; padding: 30px 20px; max-height: 78vh; overflow-y: auto;
+}
+#page-error .card h2 { color: #ff3b30; margin-bottom: 20px; font-size: 20px; text-align: center; }
+.error-code-box {
+    background: #f5f5f5; padding: 16px; border-radius: 12px; white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; color: #333;
+    border: 1px solid #ddd; margin-bottom: 20px; line-height: 1.6; word-break: break-all;
+}
+.error-code-box .highlight { color: #ff3b30; font-weight: bold; background: #ffe5e5; padding: 2px 6px; border-radius: 4px; display: inline-block; margin: 2px 0; }
+.error-list { color: #d32f2f; margin-bottom: 20px; line-height: 1.8; padding-left: 20px; font-size: 14px; }
+
+@media (max-width: 480px) {
+    .card { padding: 30px 20px; }
+    .btn-custom { font-size: 20px; padding: 20px 24px; }
+    .setting-btn, .config-btn, .back-btn { width: 44px; height: 44px; font-size: 18px; top: 14px; }
+    .setting-btn { right: 14px; } .back-btn { left: 14px; }
+    .config-btn { right: 68px; font-size: 22px; }
+    #page-config .card { padding: 20px 15px; }
+}
+</style>
+</head>
+<body>
+
+<script id="default-config" type="text/plain">
+home:'button_1','button_2'
+'button_1':[type=page,color=ys_1,title=01,subtitle=页面1],'button_3','button_4','1'
+'button_3':[type=text,color=#ff0000,title=文本],第一行文本\n第二行文本\n第三行文本
+'button_4':[type=tp_web,color=ys_2,title=网页],http://www.bilibili.com
+'button_2':[type=text,color=ys_1,title=3,subtitle=文本页],测试\n\n\n\n\n\n\n\n\n1\n\n\n\n\n\n\n\n2\n\n\n\n\n\n3
+'1':[type=page,color=#ffff00,title=页面3],'3','4'
+'3':[type=text,color=ys_1,title=1],123
+'4':[type=text,color=ys_1,title=1],123
+</script>
+
+<div class="bg-wrap">
+    <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+    <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+</div>
+
+<audio id="bgMusic" src="./music.mp3" preload="auto" loop></audio>
+<div class="morph-ball" id="morphBall"></div>
+
+<button class="back-btn" id="backBtn" aria-label="返回">←</button>
+<button class="config-btn" id="goConfig" aria-label="配置">!</button>
+<button class="setting-btn" id="goSetting" aria-label="设置">⚙</button>
+
+<div id="pages-container">
+    <div class="view-page" id="page-config">
+        <div class="card">
+            <textarea id="configTextarea" spellcheck="false" placeholder="在此输入配置..."></textarea>
+            <button class="btn-custom" id="applyConfig" style="--btn-bg: #3B82F6; --btn-color: #fff;">应用配置</button>
+            <button class="btn-gray" id="resetConfigDefault">恢复初始配置</button>
+        </div>
+    </div>
+
+    <div class="view-page" id="page-error">
+        <div class="card">
+            <h2>⚠️ 配置解析出错</h2>
+            <div id="error-details"></div>
+            <button class="btn-custom" id="errBackBtn" style="--btn-bg: #3B82F6; --btn-color: #fff; margin-top: 10px;">清空错误配置并返回</button>
+        </div>
+    </div>
+
+    <div class="view-page" id="page-setting">
+        <div class="card set-card">
+            <div class="title">⚙ 设置</div>
+            <div class="music-row"><button id="musicToggle" class="btn-toggle">🎵 音乐：开启</button></div>
+            <div class="slider-row">
+                <label>音量 <span id="valMusicVol" data-key="musicVol">100</span>%</label>
+                <div class="slider-track"><div class="slider-fill" id="fillMusicVol"></div><input type="range" min="0" max="100" step="1" id="inpMusicVol" value="100"></div>
+            </div>
+            <button class="btn-enter" id="goDisplay"><span>🎨 画面设置</span><span class="chev">›</span></button>
+            <div class="bg-switch"><button id="toggleBg" class="btn-black">切换背景</button></div>
+            <div class="col-center" style="margin-top:20px;"><button class="btn-gray" id="resetDefault">恢复默认设置</button></div>
+        </div>
+    </div>
+
+    <div class="view-page" id="page-display">
+        <div class="card set-card">
+            <div class="title">🎨 画面设置</div>
+            <div class="slider-row">
+                <label>背景不透明度 <span id="valBgAlpha" data-key="bgAlpha">0.20</span></label>
+                <div class="slider-track"><div class="slider-fill" id="fillBgAlpha"></div><input type="range" min="0" max="1" step="0.001" id="inpBgAlpha" value="0.20"></div>
+            </div>
+            <div class="slider-row">
+                <label>阴影透明度 (0.01~1.00) <span id="valShadow" data-key="shadowAlpha">0.25</span></label>
+                <div class="slider-track"><div class="slider-fill" id="fillShadow"></div><input type="range" min="0.01" max="1" step="0.001" id="inpShadow" value="0.25"></div>
+            </div>
+            <div class="slider-row">
+                <label>泡泡缩放 scale (0.1~10) 最小: <span id="valScaleMin" data-key="scaleMin">1.0</span> &nbsp; 最大: <span id="valScaleMax" data-key="scaleMax">2.5</span></label>
+                <div class="slider-track"><div class="slider-fill" id="fillScaleMin"></div><input type="range" min="0.1" max="10" step="0.001" id="inpScaleMin" value="1"></div>
+                <div class="slider-track" style="margin-top:10px;"><div class="slider-fill" id="fillScaleMax"></div><input type="range" min="0.1" max="10" step="0.001" id="inpScaleMax" value="2.5"></div>
+            </div>
+            <div class="slider-row">
+                <label>translate 最大范围 (0%~300%) <span id="valTrans" data-key="transRange">30</span>%</label>
+                <div class="slider-track"><div class="slider-fill" id="fillTrans"></div><input type="range" min="0" max="300" step="0.1" id="inpTrans" value="30"></div>
+            </div>
+            <div class="slider-row">
+                <label>泡泡大小 (0%~100%) <span id="valBubbleSize" data-key="bubbleSize">50</span>%</label>
+                <div class="slider-track"><div class="slider-fill" id="fillBubbleSize"></div><input type="range" min="0" max="100" step="0.1" id="inpBubbleSize" value="50"></div>
+            </div>
+            <div class="slider-row">
+                <label>泡泡运动速度 (0.2~10s) <span id="valBubbleTime" data-key="bubbleSec">1.00</span>s</label>
+                <div class="slider-track"><div class="slider-fill" id="fillBubbleTime"></div><input type="range" min="0.2" max="10" step="0.01" id="inpBubbleTime" value="1"></div>
+            </div>
+            <div class="slider-row">
+                <label>页面切换过渡时长 (0~5s) <span id="valPageTrans" data-key="pageTransSec">0.60</span>s</label>
+                <div class="slider-track"><div class="slider-fill" id="fillPageTrans"></div><input type="range" min="0" max="5" step="0.001" id="inpPageTrans" value="0.6"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function tryParseConfig(text) {
+    const lines = text.split('\n');
+    const nodes = {}; let homeChildren = [], errors = [];
+
+    lines.forEach(rawLine => {
+        let line = rawLine.trim();
+        if (!line || line.startsWith('//')) return;
+
+        if (line.startsWith('home:')) {
+            const matches = line.substring(5).match(/'([^']+)'/g);
+            if (matches) homeChildren = matches.map(s => s.replace(/'/g, ''));
+            else errors.push({ line: rawLine, reason: 'home 后面必须跟用单引号包裹的变量' });
+            return;
+        }
+
+        const match = line.match(/^'([^']+)':\s*\[(.*?)\]\s*,\s*(.*)$/);
+        if (!match) { errors.push({ line: rawLine, reason: "格式错误" }); return; }
+
+        const [, key, attrsRaw, valueRaw] = match;
+        let type = '', color = '', title = '', subtitle = '';
+        attrsRaw.split(',').forEach(attr => {
+            const [k, v] = attr.split('=').map(s => s.trim());
+            if (k === 'type') type = v; 
+            else if (k === 'color') color = v; 
+            else if (k === 'title') title = v;
+            else if (k === 'subtitle') subtitle = v;
+        });
+
+        if (!type || !color || !title) { errors.push({ line: rawLine, reason: '缺少属性' }); return; }
+
+        // 严格校验
+        if (!['page', 'text', 'tp_web'].includes(type)) {
+            errors.push({ line: rawLine, reason: `type 类型错误：'${type}'，只能是 page, text 或 tp_web` });
+            return;
+        }
+        if (color !== 'ys_1' && color !== 'ys_2' && !color.startsWith('#')) {
+            errors.push({ line: rawLine, reason: `color 格式错误：'${color}'，只能是 ys_1, ys_2 或 #开头的颜色` });
+            return;
+        }
+
+        let children = [], value = valueRaw.trim();
+        if (type === 'page') {
+            const matches = value.match(/'([^']+)'/g);
+            if (matches) children = matches.map(s => s.replace(/'/g, ''));
+        } else {
+            if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+            value = value.replace(/\\n/g, '\n');
+        }
+
+        if (nodes[key]) { errors.push({ line: rawLine, reason: `重复变量` }); return; }
+        nodes[key] = { key, type, color, title, subtitle, children, value };
+    });
+
+    const checkDeps = (keys, parent) => keys.forEach(k => { if (!nodes[k]) errors.push({ line: `检查 ${parent}`, reason: `找不到 '${k}'` }); });
+    checkDeps(homeChildren, 'home'); Object.values(nodes).forEach(n => { if (n.type === 'page') checkDeps(n.children, n.key); });
+
+    return { nodes, homeChildren, errors };
+}
+
+function renderErrorView(text, errors) {
+    const lines = text.split('\n');
+    let errHtml = `<div class="error-code-box">`;
+    lines.forEach(line => {
+        if (errors.some(e => e.line === line) && line.trim() !== '') {
+            errHtml += `<span class="highlight">》${line}《</span>\n`;
+        } else {
+            errHtml += line + '\n';
+        }
+    });
+    errHtml += `</div><ul class="error-list">`;
+    errors.forEach(e => {
+        errHtml += `<li><b>${e.line}</b> : ${e.reason}</li>`;
+    });
+    errHtml += `</ul>`;
+    
+    document.getElementById('error-details').innerHTML = errHtml;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const defaultText = document.getElementById('default-config').textContent;
+    const savedConfig = localStorage.getItem('app_config_text');
+    const configText = savedConfig !== null ? savedConfig : defaultText;
+    
+    document.getElementById('configTextarea').value = configText;
+
+    const parseResult = tryParseConfig(configText);
+    let nodes = parseResult.nodes;
+    let homeChildren = parseResult.homeChildren;
+    let errors = parseResult.errors;
+
+    const pagesContainer = document.getElementById('pages-container');
+    
+    // 初始化导航栈
+    let navStack = [{ id: 'page-home' }];
+
+    if (errors.length > 0) {
+        renderErrorView(configText, errors);
+        document.getElementById('page-error').classList.add('active');
+        document.getElementById('backBtn').classList.add('visible');
+        navStack = [{ id: 'page-home' }, { id: 'page-config', btnRef: document.getElementById('goConfig') }, { id: 'page-error', btnRef: document.getElementById('goConfig') }];
+    } else {
+        let homeHtml = `<div class="view-page active" id="page-home"><div class="card"><div class="title">✨ 欢迎</div><div class="col-center" id="home-buttons"></div></div></div>`;
+        Object.values(nodes).forEach(node => {
+            if (node.type === 'page' || node.type === 'text') {
+                let content = node.type === 'page' ? `<div class="col-center" id="btns-${node.key}"></div>` : `<div class="announce-content">${node.value}</div>`;
+                let titleHtml = node.subtitle ? `<div class="title">${node.subtitle}</div>` : '';
+                homeHtml += `<div class="view-page" id="page-${node.key}"><div class="card ${node.type === 'text' ? 'set-card' : ''}">${titleHtml}${content}</div></div>`;
+            }
+        });
+        pagesContainer.insertAdjacentHTML('afterbegin', homeHtml);
+
+        function renderButton(node, container) {
+            const btn = document.createElement('button');
+            btn.className = 'btn-custom'; btn.dataset.key = node.key; btn.textContent = node.title;
+            if (node.color === 'ys_1') btn.classList.add('btn-theme-1');
+            else if (node.color === 'ys_2') btn.classList.add('btn-theme-2');
+            else if (node.color.startsWith('#')) { btn.style.setProperty('--btn-bg', node.color); }
+            else btn.classList.add('btn-theme-1');
+
+            btn.addEventListener('click', () => {
+                if (node.type === 'tp_web') window.open(node.value, '_blank');
+                else {
+                    const current = document.querySelector('.view-page.active').id;
+                    navStack.push({ id: `page-${node.key}`, btnRef: btn });
+                    animateButtonToPage(btn, `page-${node.key}`, current);
+                }
+            });
+            container.appendChild(btn);
+        }
+        homeChildren.forEach(key => renderButton(nodes[key], document.getElementById('home-buttons')));
+        Object.values(nodes).forEach(node => { if (node.type === 'page') node.children.forEach(key => renderButton(nodes[key], document.getElementById(`btns-${node.key}`))); });
+    }
+
+    const DEFAULT_CONFIG = { bgAlpha: 0.20, shadowAlpha: 0.25, scaleMin: 1, scaleMax: 2.5, transRange: 30, bubbleSize: 50, bubbleSec: 1, pageTransSec: 0.6, bgColor: "#ffffff", musicVol: 100 };
+    const config = { ...DEFAULT_CONFIG };
+    const bgWrap = document.querySelector(".bg-wrap"), audio = document.getElementById("bgMusic");
+    let musicEnabled = true, bubbleTimer = null, isDragging = false, animLock = false;
+
+    function pauseBubbleAnim() { if (bubbleTimer) { clearInterval(bubbleTimer); bubbleTimer = null; } isDragging = true; }
+    function resumeBubbleAnim() { if (!isDragging) return; isDragging = false; setTimeout(() => { if (!isDragging) restartBubbleAnim(); }, 50); }
+    function getAnimTiming() { 
+        const ms = Math.min(Math.max(config.pageTransSec * 1000, 500), 5000); 
+        return { morph: Math.round(ms * 0.55), colorFade: Math.round(ms * 0.25), fadeIn: Math.round(ms * 0.20) }; 
+    }
+    function getBtnRadius(btn, rect) { return getComputedStyle(btn).borderRadius.includes('%') ? rect.width / 2 : (parseFloat(getComputedStyle(btn).borderRadius) || 0); }
+
+    function updateCardStyle() {
+        document.documentElement.style.setProperty('--card-bg', `rgba(255, 255, 255, ${config.bgAlpha})`);
+        document.documentElement.style.setProperty('--card-shadow', `0 8px 32px rgba(0, 0, 0, ${config.shadowAlpha})`);
+    }
+
+    function animateButtonToPage(btn, targetId, sourceId) {
+        if (animLock) return; animLock = true;
+        const ball = document.getElementById('morphBall'), sourcePage = document.getElementById(sourceId), targetPage = document.getElementById(targetId);
+        const targetCard = targetPage.querySelector('.card'), contents = Array.from(targetCard.children);
+        const btnRect = btn.getBoundingClientRect(), cardRect = targetCard.getBoundingClientRect();
+        const t = getAnimTiming(), btnColor = getComputedStyle(btn).backgroundColor;
+        
+        pauseBubbleAnim(); btn.classList.add('anim-hidden');
+        sourcePage.style.cssText += `transition: opacity ${t.morph * 0.5}ms ease; opacity: 0;`;
+        targetPage.classList.add('active'); targetPage.style.cssText += `opacity: 1; pointer-events: none; z-index: 3;`;
+        targetCard.classList.add('no-glass'); contents.forEach(el => el.style.cssText = 'transition: none; opacity: 0;');
+
+        ball.style.cssText = `display: block; top: ${btnRect.top}px; left: ${btnRect.left}px; width: ${btnRect.width}px; height: ${btnRect.height}px; border-radius: ${getBtnRadius(btn, btnRect)}px; transition: none; z-index: 1000000;`;
+        ball.style.setProperty('--morph-color', btnColor); ball.style.setProperty('--fade-duration', '0ms'); ball.classList.remove('fade-color');
+        void ball.offsetWidth;
+
+        requestAnimationFrame(() => {
+            ball.style.transition = `top ${t.morph}ms cubic-bezier(0.34, 1.05, 0.64, 1), left ${t.morph}ms cubic-bezier(0.34, 1.05, 0.64, 1), width ${t.morph}ms cubic-bezier(0.34, 1.05, 0.64, 1), height ${t.morph}ms cubic-bezier(0.34, 1.05, 0.64, 1), border-radius ${t.morph}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+            ball.style.cssText += `top: ${cardRect.top}px; left: ${cardRect.left}px; width: ${cardRect.width}px; height: ${cardRect.height}px; border-radius: 28px;`;
+        });
+
+        setTimeout(() => {
+            ball.style.setProperty('--fade-duration', t.colorFade + 'ms'); ball.classList.add('fade-color');
+            setTimeout(() => {
+                ball.style.display = 'none'; ball.classList.remove('fade-color'); targetCard.classList.remove('no-glass');
+                contents.forEach(el => el.style.cssText = `transition: opacity ${t.fadeIn}ms ease; opacity: 1;`);
+                setTimeout(() => {
+                    targetPage.style.cssText += `pointer-events: auto; z-index: 2;`;
+                    sourcePage.classList.remove('active'); sourcePage.style.cssText = ''; contents.forEach(el => el.style.cssText = '');
+                    document.getElementById('backBtn').classList.add('visible');
+                    animLock = false; resumeBubbleAnim();
+                    targetPage.querySelectorAll('input[type="range"]').forEach(inp => { inp._trackWidth = 0; updateSliderFill(inp); });
+                }, t.fadeIn);
+            }, t.colorFade);
+        }, t.morph);
+    }
+
+    function animatePageToButton(btn, sourceId, targetId) {
+        if (animLock) return; animLock = true;
+        const ball = document.getElementById('morphBall'), targetPage = document.getElementById(targetId), sourcePage = document.getElementById(sourceId);
+        const sourceCard = sourcePage.querySelector('.card'), contents = Array.from(sourceCard.children);
+        const btnRect = btn.getBoundingClientRect(), cardRect = sourceCard.getBoundingClientRect();
+        const t = getAnimTiming(), btnColor = getComputedStyle(btn).backgroundColor;
+
+        pauseBubbleAnim(); contents.forEach(el => el.style.cssText = `transition: opacity ${t.fadeIn}ms ease; opacity: 0;`);
+        document.getElementById('backBtn').classList.remove('visible');
+
+        setTimeout(() => {
+            sourceCard.classList.add('no-glass');
+            ball.style.cssText = `display: block; top: ${cardRect.top}px; left: ${cardRect.left}px; width: ${cardRect.width}px; height: ${cardRect.height}px; border-radius: 28px; transition: none; z-index: 1000000;`;
+            ball.style.setProperty('--morph-color', btnColor); ball.style.setProperty('--fade-duration', '0ms'); ball.classList.remove('fade-color');
+            void ball.offsetWidth;
+
+            requestAnimationFrame(() => {
+                ball.style.transition = `top ${t.morph}ms cubic-bezier(0.4, 0, 0.2, 1), left ${t.morph}ms cubic-bezier(0.4, 0, 0.2, 1), width ${t.morph}ms cubic-bezier(0.4, 0, 0.2, 1), height ${t.morph}ms cubic-bezier(0.4, 0, 0.2, 1), border-radius ${t.morph}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+                ball.style.cssText += `top: ${btnRect.top}px; left: ${btnRect.left}px; width: ${btnRect.width}px; height: ${btnRect.height}px; border-radius: ${getBtnRadius(btn, btnRect)}px;`;
+            });
+
+            sourcePage.style.transition = `opacity ${t.morph}ms ease`; sourcePage.style.opacity = '0';
+
+            setTimeout(() => {
+                ball.style.display = 'none'; btn.classList.remove('anim-hidden'); sourceCard.classList.remove('no-glass');
+                targetPage.classList.add('active'); targetPage.style.cssText += `transition: none; opacity: 0;`;
+                void targetPage.offsetWidth;
+                targetPage.style.cssText += `transition: opacity ${t.fadeIn}ms ease; opacity: 1;`;
+
+                setTimeout(() => {
+                    sourcePage.classList.remove('active'); sourcePage.style.cssText = ''; contents.forEach(el => el.style.cssText = '');
+                    targetPage.style.cssText = `opacity: 1; pointer-events: auto;`;
+                    if (targetId !== 'page-home') document.getElementById('backBtn').classList.add('visible');
+                    animLock = false; resumeBubbleAnim();
+                }, t.fadeIn);
+            }, t.morph);
+        }, t.fadeIn);
+    }
+
+    // 统一处理错误页面的返回
+    function handleErrorReturn(animBtn) {
+        localStorage.removeItem('app_config_text');
+        const saved = localStorage.getItem('app_config_text');
+        document.getElementById('configTextarea').value = saved !== null ? saved : defaultText;
+        
+        // 强制重置导航栈，确保从错误页退回到配置页是合理的
+        navStack = [{ id: 'page-home' }, { id: 'page-config', btnRef: document.getElementById('goConfig') }];
+        
+        animatePageToButton(animBtn, 'page-error', 'page-config');
+    }
+
+    document.getElementById('errBackBtn').addEventListener('click', function() {
+        handleErrorReturn(this);
+    });
+
+    document.getElementById('goSetting').addEventListener('click', () => {
+        const cur = document.querySelector('.view-page.active');
+        if (cur.id !== 'page-setting' && cur.id !== 'page-display') {
+            navStack.push({ id: 'page-setting', btnRef: document.getElementById('goSetting') });
+            animateButtonToPage(document.getElementById('goSetting'), 'page-setting', cur.id);
+        }
+    });
+
+    document.getElementById('goConfig').addEventListener('click', () => {
+        const cur = document.querySelector('.view-page.active');
+        if (cur.id !== 'page-config' && cur.id !== 'page-error') {
+            navStack.push({ id: 'page-config', btnRef: document.getElementById('goConfig') });
+            animateButtonToPage(document.getElementById('goConfig'), 'page-config', cur.id);
+        }
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+        const activePage = document.querySelector('.view-page.active').id;
+        
+        // 如果当前是错误页面，拦截左上角返回事件，统一走错误返回逻辑
+        if (activePage === 'page-error') {
+            handleErrorReturn(document.getElementById('errBackBtn')); // 借用底部的按钮作为动画收缩的目标点
+            return;
+        }
+        
+        if (navStack.length <= 1) return;
+        const cur = navStack.pop(), prev = navStack[navStack.length - 1];
+        if (cur.btnRef) {
+            animatePageToButton(cur.btnRef, cur.id, prev.id);
+        } else {
+            switchMainView(prev.id);
+        }
+    });
+
+    // 应用配置
+    let isApplying = false;
+    document.getElementById('applyConfig').addEventListener('click', function() {
+        if (isApplying) return;
+        
+        if (document.activeElement && document.activeElement.blur) {
+            document.activeElement.blur();
+        }
+
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = '解析中...';
+        isApplying = true;
+
+        const newText = document.getElementById('configTextarea').value;
+        const res = tryParseConfig(newText);
+
+        setTimeout(() => {
+            if (res.errors.length === 0) {
+                localStorage.setItem('app_config_text', newText);
+                
+                const rect = btn.getBoundingClientRect();
+                const ball = document.getElementById('morphBall');
+                const targetWidth = Math.min(window.innerWidth - 40, 440);
+                
+                ball.style.cssText = `display: block; top: ${rect.top}px; left: ${rect.left}px; width: ${rect.width}px; height: ${rect.height}px; border-radius: ${getBtnRadius(btn, rect)}px; transition: none; z-index: 1000000; transform: none;`;
+                ball.style.setProperty('--morph-color', '#3B82F6');
+                ball.classList.remove('fade-color');
+                ball.style.setProperty('--fade-duration', '0ms');
+                void ball.offsetWidth;
+
+                requestAnimationFrame(() => {
+                    ball.style.transition = 'all 0.4s cubic-bezier(0.34, 1.05, 0.64, 1)';
+                    ball.style.top = '50%';
+                    ball.style.left = '50%';
+                    ball.style.width = targetWidth + 'px';
+                    ball.style.height = '78vh';
+                    ball.style.transform = 'translate(-50%, -50%)';
+                    ball.style.borderRadius = '28px';
+                    
+                    setTimeout(() => {
+                        ball.style.setProperty('--fade-duration', '200ms');
+                        ball.classList.add('fade-color');
+                    }, 200);
+                });
+
+                setTimeout(() => { location.reload(); }, 500);
+
+            } else {
+                btn.disabled = false;
+                btn.textContent = '应用配置';
+                isApplying = false;
+                
+                renderErrorView(newText, res.errors);
+                navStack.push({ id: 'page-error', btnRef: btn });
+                animateButtonToPage(btn, 'page-error', 'page-config');
+            }
+        }, 1500);
+    });
+
+    document.getElementById('resetConfigDefault').addEventListener('click', () => {
+        if(confirm('确定要恢复初始配置吗？当前修改的文本将被替换为默认模板。')) {
+            document.getElementById('configTextarea').value = defaultText;
+        }
+    });
+
+    document.getElementById('goDisplay').addEventListener('click', () => { 
+        const btn = document.getElementById('goDisplay');
+        const current = document.querySelector('.view-page.active').id;
+        navStack.push({ id: 'page-display', btnRef: btn }); 
+        animateButtonToPage(btn, 'page-display', current); 
+    });
+
+    document.getElementById('musicToggle').addEventListener('click', () => {
+        musicEnabled = !musicEnabled;
+        document.getElementById('musicToggle').classList.toggle('off', !musicEnabled);
+        document.getElementById('musicToggle').textContent = musicEnabled ? "🎵 音乐：开启" : "🔇 音乐：关闭";
+        musicEnabled ? audio.play().catch(()=>{}) : audio.pause();
+    });
+    
+    document.getElementById('toggleBg').addEventListener('click', () => applyBackground(config.bgColor === "#000000" ? "#ffffff" : "#000000"));
+    
+    document.getElementById('resetDefault').addEventListener('click', () => {
+        Object.assign(config, DEFAULT_CONFIG);
+        
+        const resetMap = [
+            { id: 'inpBgAlpha', valId: 'valBgAlpha', key: 'bgAlpha', fixed: 2 },
+            { id: 'inpShadow', valId: 'valShadow', key: 'shadowAlpha', fixed: 2 },
+            { id: 'inpScaleMin', valId: 'valScaleMin', key: 'scaleMin', fixed: 1 },
+            { id: 'inpScaleMax', valId: 'valScaleMax', key: 'scaleMax', fixed: 1 },
+            { id: 'inpTrans', valId: 'valTrans', key: 'transRange', fixed: 0 },
+            { id: 'inpBubbleSize', valId: 'valBubbleSize', key: 'bubbleSize', fixed: 1 },
+            { id: 'inpBubbleTime', valId: 'valBubbleTime', key: 'bubbleSec', fixed: 2 },
+            { id: 'inpPageTrans', valId: 'valPageTrans', key: 'pageTransSec', fixed: 2 },
+            { id: 'inpMusicVol', valId: 'valMusicVol', key: 'musicVol', fixed: 0 }
+        ];
+
+        resetMap.forEach(item => {
+            const inp = document.getElementById(item.id);
+            const valSpan = document.getElementById(item.valId);
+            if (inp && valSpan) {
+                inp.value = config[item.key];
+                valSpan.textContent = config[item.key].toFixed(item.fixed);
+                updateSliderFill(inp);
+            }
+        });
+
+        applyVolume(); applyBackground("#ffffff"); updateCardStyle(); updateBubbleSize(); restartBubbleAnim();
+    });
+
+    function applyVolume() { if (audio) audio.volume = config.musicVol / 100; }
+    function updateBubbleSize() { document.querySelectorAll(".bubble").forEach(b => b.style.setProperty('--bubble-size', config.bubbleSize + '%')); }
+    function applyBackground(color) {
+        config.bgColor = color; bgWrap.style.background = color;
+        const toggle = document.getElementById('toggleBg');
+        document.body.classList.toggle('bg-black', color !== "#ffffff");
+        toggle.className = color === "#ffffff" ? "btn-black" : "btn-white";
+        updateCardStyle();
+        document.querySelectorAll('input[type="range"]').forEach(inp => { inp._trackWidth = 0; updateSliderFill(inp); });
+    }
+    function updateSliderFill(slider) {
+        if (!slider) return;
+        const percent = Math.max(0, Math.min(100, ((parseFloat(slider.value) - parseFloat(slider.min)) / (parseFloat(slider.max) - parseFloat(slider.min))) * 100));
+        if (!slider._trackWidth) slider._trackWidth = slider.offsetWidth;
+        const visualPercent = slider._trackWidth > 0 ? ((22 + (slider._trackWidth - 22) * (percent / 100)) / slider._trackWidth) * 100 : percent;
+        const fillEl = slider.closest('.slider-track')?.querySelector('.slider-fill');
+        if (fillEl) fillEl.style.width = visualPercent + '%';
+    }
+
+    function checkIsOnThumb(inp, clientX) {
+        const rect = inp.getBoundingClientRect();
+        if (rect.width === 0) return true;
+        const thumbLeft = (rect.width - 22) * ((parseFloat(inp.value) - parseFloat(inp.min)) / (parseFloat(inp.max) - parseFloat(inp.min)));
+        return (clientX - rect.left) >= thumbLeft - 10 && (clientX - rect.left) <= thumbLeft + 32;
+    }
+
+    document.addEventListener('pointerup', () => {
+        document.querySelectorAll('input[type="range"]').forEach(inp => { inp._touchingSlot = false; inp._savedValue = null; });
+    });
+    document.addEventListener('pointercancel', () => {
+        document.querySelectorAll('input[type="range"]').forEach(inp => { inp._touchingSlot = false; inp._savedValue = null; });
+    });
+
+    function bindSlider(inpId, valId, cfgKey, formatFn) {
+        const inp = document.getElementById(inpId), valSpan = document.getElementById(valId); if (!inp || !valSpan) return;
+        
+        const onDown = (e) => {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            if (!checkIsOnThumb(inp, clientX)) { inp._touchingSlot = true; inp._savedValue = inp.value; }
+            pauseBubbleAnim();
+        };
+        inp.addEventListener('pointerdown', onDown); inp.addEventListener('touchstart', onDown, { passive: true }); inp.addEventListener('mousedown', onDown);
+        
+        let rafPending = false;
+        inp.addEventListener("input", () => {
+            if (inp._touchingSlot && inp._savedValue !== null) { inp.value = inp._savedValue; updateSliderFill(inp); return; }
+            const val = Number(inp.value); config[cfgKey] = val; valSpan.textContent = formatFn ? formatFn(val) : val.toFixed(2); updateSliderFill(inp);
+            
+            if (!rafPending) {
+                rafPending = true; requestAnimationFrame(() => {
+                    rafPending = false;
+                    if (cfgKey === 'bubbleSec') restartBubbleAnim(); 
+                    else if (cfgKey === 'bubbleSize') updateBubbleSize(); 
+                    else if (cfgKey === 'musicVol') applyVolume(); 
+                    else if (cfgKey === 'bgAlpha' || cfgKey === 'shadowAlpha') updateCardStyle();
+                });
+            }
+        });
+        updateSliderFill(inp);
+    }
+
+    function bindScaleSlider() {
+        const inpMin = document.getElementById("inpScaleMin"), inpMax = document.getElementById("inpScaleMax");
+        const valMin = document.getElementById("valScaleMin"), valMax = document.getElementById("valScaleMax");
+        if (!inpMin || !inpMax) return;
+
+        const updateScale = (isMin) => {
+            let min = Number(inpMin.value), max = Number(inpMax.value);
+            if (min >= max) {
+                if (isMin) { min = Number((max - 0.001).toFixed(3)); inpMin.value = min; }
+                else { max = Number((min + 0.001).toFixed(3)); inpMax.value = max; }
+            }
+            config.scaleMin = min; config.scaleMax = max;
+            valMin.textContent = min.toFixed(1); valMax.textContent = max.toFixed(1);
+            updateSliderFill(inpMin); updateSliderFill(inpMax);
+        };
+
+        [inpMin, inpMax].forEach((inp, index) => {
+            const onDown = (e) => {
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                if (!checkIsOnThumb(inp, clientX)) { inp._touchingSlot = true; inp._savedValue = inp.value; }
+                pauseBubbleAnim();
+            };
+            inp.addEventListener('pointerdown', onDown); inp.addEventListener('touchstart', onDown, { passive: true }); inp.addEventListener('mousedown', onDown);
+            inp.addEventListener("input", () => {
+                if (inp._touchingSlot && inp._savedValue !== null) { inp.value = inp._savedValue; updateSliderFill(inp); return; }
+                updateScale(index === 0);
+            });
+            updateSliderFill(inp);
+        });
+    }
+    bindScaleSlider();
+
+    ["inpBgAlpha:valBgAlpha:bgAlpha", "inpShadow:valShadow:shadowAlpha", "inpTrans:valTrans:transRange", "inpBubbleSize:valBubbleSize:bubbleSize", "inpBubbleTime:valBubbleTime:bubbleSec", "inpPageTrans:valPageTrans:pageTransSec", "inpMusicVol:valMusicVol:musicVol"].forEach(str => {
+        const [i, v, c] = str.split(':'); bindSlider(i, v, c, val => c === 'bgAlpha' || c === 'shadowAlpha' || c === 'pageTransSec' || c === 'bubbleSec' ? val.toFixed(2) : (c === 'bubbleSize' ? val.toFixed(1) : val.toFixed(0)));
+    });
+
+    function restartBubbleAnim() {
+        if (bubbleTimer) clearInterval(bubbleTimer);
+        document.documentElement.style.setProperty('--bubble-duration', config.bubbleSec + 's');
+        document.querySelectorAll(".bubble").forEach(bub => { bub.style.transform = `translate3d(${(Math.random() * config.transRange * 2 - config.transRange)}%,${(Math.random() * config.transRange * 2 - config.transRange)}%,0) scale(${config.scaleMin + Math.random() * (config.scaleMax - config.scaleMin)})`; });
+        bubbleTimer = setInterval(() => { document.querySelectorAll(".bubble").forEach(bub => { bub.style.transform = `translate3d(${(Math.random() * config.transRange * 2 - config.transRange)}%,${(Math.random() * config.transRange * 2 - config.transRange)}%,0) scale(${config.scaleMin + Math.random() * (config.scaleMax - config.scaleMin)})`; }); }, config.bubbleSec * 1000);
+    }
+
+    document.querySelectorAll(".bubble").forEach(bub => { bub.style.transition = 'none'; });
+    void document.body.offsetHeight;
+    document.querySelectorAll(".bubble").forEach(bub => { bub.style.transition = ''; });
+    updateCardStyle(); applyBackground("#ffffff"); applyVolume(); restartBubbleAnim();
+    
+    if (errors.length === 0) {
+        setTimeout(() => { alert('记得看右上角的设置按钮啊！！！'); setTimeout(() => alert('音乐已经默认开启，可到右上角设置关闭'), 3000); }, 100);
+    }
+
+    audio.play().catch(() => { document.addEventListener('click', () => audio.play().catch(()=>{}), { once: true }); });
+    document.addEventListener('pointerup', resumeBubbleAnim); document.addEventListener('pointercancel', resumeBubbleAnim);
+    window.addEventListener('resize', () => { document.querySelectorAll('input[type="range"]').forEach(inp => { inp._trackWidth = 0; updateSliderFill(inp); }); });
+});
+</script>
+</body>
+</html>
