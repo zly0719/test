@@ -724,7 +724,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCardStyle(); applyBackground("#ffffff"); applyVolume(); restartBubbleAnim();
     
     if (errors.length === 0) {
-        setTimeout(() => { alert('记得看右上角的设置按钮啊！！！'); setTimeout(() => alert('音乐已经默认开启，可到右上角设置关闭'), 3000); }, 100);
+        setTimeout(() => { alert('记得看右上角的设置按钮'); setTimeout(() => alert('在任何界面点击左上角的箭头按钮何返回上一级'), 3000); }, 100);
     }
 
     audio.play().catch(() => { document.addEventListener('click', () => audio.play().catch(()=>{}), { once: true }); });
